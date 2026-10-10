@@ -1,4 +1,5 @@
 from typing import TypedDict
+import urllib
 from urllib.parse import urljoin, urlparse
 
 import requests
@@ -76,9 +77,25 @@ def extract_page_data(html: str, page_url: str) -> PageData:
 def get_html(url: str) -> str:
     r = requests.get(url, headers={"User-Agent": "BootCrawler/1.0"})
     r.raise_for_status()
-
     content_type = r.headers.get("content-type", "").lower()
     if "text/html" not in content_type:
         raise Exception("Wrong content-type. Content-type must be text/html")
-
     return r.text
+
+def crawl_page(base_url, current_url=None, page_data=None):
+    if current_url is None:
+        current_url = base_url
+    if page_data is None:
+        page_data = {}
+    if urlparse(base_url).netloc != urlparse(current_url).netloc:
+        return page_data
+
+    current_url_norm = normalize_url(current_url)
+    if current_url_norm in page_data:
+        return page_data
+
+    html_string = get_html(current_url)
+    page_data[current_url_norm]=extract_page_data(html_string,current_url)
+    for hlink in page_data[current_url_norm]["outgoing_links"]:
+        page_data = crawl_page(base_url,hlink,page_data)
+    return page_data
