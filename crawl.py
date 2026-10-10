@@ -1,5 +1,16 @@
-from urllib.parse import urlparse, urljoin
+from typing import TypedDict
+from urllib.parse import urljoin, urlparse
+
+import requests
 from bs4 import BeautifulSoup, Tag
+
+
+class PageData(TypedDict):
+    url: str
+    heading: str
+    first_paragraph: str
+    outgoing_links: list[str]
+    image_urls: list[str]
 
 def normalize_url(raw_url: str) -> str:
     url_properties = urlparse(raw_url)
@@ -51,3 +62,23 @@ def get_images_from_html(html, base_url):
             url = urljoin(base_url, url)
             image_list_joined.append(url)
     return image_list_joined
+
+def extract_page_data(html: str, page_url: str) -> PageData:
+    data: PageData = {
+        "url": page_url,
+        "heading": get_heading_from_html(html),
+        "first_paragraph": get_first_paragraph_from_html(html),
+        "outgoing_links": get_urls_from_html(html, page_url),
+        "image_urls": get_images_from_html(html, page_url)
+    }
+    return data
+
+def get_html(url: str) -> str:
+    r = requests.get(url, headers={"User-Agent": "BootCrawler/1.0"})
+    r.raise_for_status()
+
+    content_type = r.headers.get("content-type", "").lower()
+    if "text/html" not in content_type:
+        raise Exception("Wrong content-type. Content-type must be text/html")
+
+    return r.text
